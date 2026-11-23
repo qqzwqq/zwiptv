@@ -24,7 +24,7 @@ const WORKFLOW = '.github/workflows/push_docker.yaml'
 const FILES = ['bump-version.js', 'scripts/base-image.mjs', 'Dockerfile', 'package.json', 'package-lock.json', 'README.md', 'CHANGELOG.md', 'web/admin.html', WORKFLOW]
 const { pinnedBase, rewriteBase, baseChanged } = await import('./base-image.mjs')
 
-const tagsIn = (yaml) => [...yaml.matchAll(/akiralereal\/iptv:([\w.]+)/g)].map(m => m[1])
+const tagsIn = (yaml) => [...yaml.matchAll(/qqzwqq\/iptv:([\w.]+)/g)].map(m => m[1])
 
 let passed = 0
 const check = (name, fn) => { fn(); passed++; console.log(`  ✅ ${name}`) }
