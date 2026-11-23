@@ -5,7 +5,7 @@ on:
   #     - main
   workflow_dispatch:
 env:
-  IMAGE: akiralereal/iptv
+  IMAGE: qqzwqq/iptv
 jobs:
   # 每个平台单独一个 job 并行构建，只按 digest 推送（不打标签），全部成功后由 merge 合成多架构清单再打标签。
   # arm64 放原生 arm runner：以前在 amd64 上走 QEMU 模拟时，arm64 的 npm ci 时常无输出卡死（历次取消重跑都卡在这一步）。
@@ -99,10 +99,10 @@ jobs:
         # 下面的版本标签由 bump-version.js 改写（每种只改文件里第一处），保持一行一个
         env:
           TAGS: |
-            akiralereal/iptv:latest
-            akiralereal/iptv:4.80.0
-            akiralereal/iptv:4.80
-            akiralereal/iptv:4
+            qqzwqq/iptv:latest
+            qqzwqq/iptv:4.80.0
+            qqzwqq/iptv:4.80
+            qqzwqq/iptv:4
         run: |
           docker buildx imagetools create \
             $(printf -- '-t %s ' $TAGS) \
