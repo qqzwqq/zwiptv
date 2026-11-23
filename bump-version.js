@@ -180,16 +180,16 @@ console.log(`✔ README.md（含顶部「当前版本更新内容」）`)
 const yamlPath = r('.github/workflows/push_docker.yaml')
 let yaml = readFileSync(yamlPath, 'utf-8')
 yaml = yaml.replace(
-  /akiralereal\/iptv:\d+\.\d+\.\d+/,
+  /qqzwqq\/iptv:\d+\.\d+\.\d+/,
   `qqzwqq/iptv:${newVersion}`
 )
 yaml = yaml.replace(
-  /akiralereal\/iptv:\d+\.\d+\n/,
+  /qqzwqq\/iptv:\d+\.\d+\n/,
   `qqzwqq/iptv:${newMajor}.${newMinor}\n`
 )
 // 主版本滚动标签（如 :2）——此前漏更新，导致 v2.x 仍打成 :1
 yaml = yaml.replace(
-  /akiralereal\/iptv:\d+\n/,
+  /qqzwqq\/iptv:\d+\n/,
   `qqzwqq/iptv:${newMajor}\n`
 )
 writeFileSync(yamlPath, yaml)
