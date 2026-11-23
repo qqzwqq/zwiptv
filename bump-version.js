@@ -69,7 +69,7 @@ if (arg === 'release-notes' || arg === 'notes') {
       '**这一版要重新下载完整镜像**（amd64 / arm64 约 400 MB）：镜像底层换过，各层都重建了。之后的版本恢复只下载有变化的部分（一般几十 MB）。',
       '',
     ] : []),
-    `**升级**：拉取 \`akiralereal/iptv:${tag}\`（或 \`latest\`），重建容器即可；数据卷与现有订阅不受影响。完整更新历史见 [CHANGELOG.md](${CHANGELOG_URL})。`,
+    `**升级**：拉取 \`qqzwqq/iptv:${tag}\`（或 \`latest\`），重建容器即可；数据卷与现有订阅不受影响。完整更新历史见 [CHANGELOG.md](${CHANGELOG_URL})。`,
     '',
   ].join('\n'))
   process.exit(0)
@@ -181,16 +181,16 @@ const yamlPath = r('.github/workflows/push_docker.yaml')
 let yaml = readFileSync(yamlPath, 'utf-8')
 yaml = yaml.replace(
   /akiralereal\/iptv:\d+\.\d+\.\d+/,
-  `akiralereal/iptv:${newVersion}`
+  `qqzwqq/iptv:${newVersion}`
 )
 yaml = yaml.replace(
   /akiralereal\/iptv:\d+\.\d+\n/,
-  `akiralereal/iptv:${newMajor}.${newMinor}\n`
+  `qqzwqq/iptv:${newMajor}.${newMinor}\n`
 )
 // 主版本滚动标签（如 :2）——此前漏更新，导致 v2.x 仍打成 :1
 yaml = yaml.replace(
   /akiralereal\/iptv:\d+\n/,
-  `akiralereal/iptv:${newMajor}\n`
+  `qqzwqq/iptv:${newMajor}\n`
 )
 writeFileSync(yamlPath, yaml)
 console.log(`✔ .github/workflows/push_docker.yaml`)
