@@ -223,7 +223,7 @@ async function runtime(state = {}) {
       if (args.includes('--version')) {
         // 本项目的虚拟环境不走 bin/yt-dlp 启动脚本（挪过目录就失效），用其中的 python -m yt_dlp
         // 状态读取会吞掉这里的异常（当成读不到版本），断言失败记下来，由各用例结尾统一检查
-        if (!/\/\.runtime\/youtube\/bin\/python$/.test(binary) || args.slice(0, 2).join(' ') !== '-m yt_dlp') state.wrongCommand = `${binary} ${args.join(' ')}`
+        if (!/(?:^|[\\/])\.runtime[\\/]youtube[\\/]bin[\\/]python$/.test(binary) || args.slice(0, 2).join(' ') !== '-m yt_dlp') state.wrongCommand = `${binary} ${args.join(' ')}`
         if (state.slow) throw Object.assign(new Error('killed'), {killed:true, signal:'SIGTERM'})
         if (state.broken) throw Object.assign(new Error('exit 1'), {code:1, stderr:'No module named yt_dlp'})
         return {stdout:state.version}

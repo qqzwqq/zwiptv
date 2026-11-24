@@ -307,8 +307,15 @@ try {
 // 出口被人机验证：1 分钟内不再跑 yt-dlp；并发请求共用的同一次失败和冷却期内的重试只记一行
 const fakeDir = mkdtempSync(join(tmpdir(),'iptv-youtube-bot-'))
 const runs = join(fakeDir,'runs')
-const fakeBin = join(fakeDir,'yt-dlp')
-writeFileSync(fakeBin, `#!/bin/sh\necho run >> "${runs}"\necho "${botCheck}" >&2\nexit 1\n`, { mode:0o755 })
+const fakeBin = join(fakeDir,'yt-dlp.js')
+const fakeScript = [
+  "import { appendFileSync } from 'node:fs'",
+  `appendFileSync(${JSON.stringify(runs)}, ${JSON.stringify('run\n')})`,
+  `console.error(${JSON.stringify(botCheck)})`,
+  'process.exit(1)',
+  '',
+].join('\n')
+writeFileSync(fakeBin, fakeScript)
 const ytDlpRuns = () => { try { return readFileSync(runs,'utf8').split('\n').filter(Boolean).length } catch { return 0 } }
 const savedBin = process.env.YTDLP_BIN, realNow = Date.now
 process.env.YTDLP_BIN = fakeBin

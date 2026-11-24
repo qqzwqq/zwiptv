@@ -9,6 +9,7 @@ import { adminPath, host, pass, port, programInfoUpdateInterval, token, userId, 
 import { getDateTimeStr } from "./utils/time.js";
 import update, { getLastPlaybackBuiltAt, localLogosFingerprint } from "./utils/updateData.js";
 import { epgBuiltToday, scheduleDailyEpgRefresh } from "./utils/dailyEpgRefresh.js";
+import { resolveUpdateIntervalHours } from "./utils/updateInterval.js";
 import { printBlue, printGreen, printGrey, printMagenta, printRed, printYellow } from "./utils/colorOut.js";
 import { channel, interfaceStr, fetchManifestDirect, rewriteManifest, inlineResolvedManifest } from "./utils/appUtils.js";
 import { toProxyManifest, lookup as lookupProxyTarget, pipeUpstream, probeUpstream, fetchNested, manifestCooling, markManifestResult } from "./utils/hlsProxy.js";
@@ -48,7 +49,7 @@ import { SYSTEM_ASSET_PATHS, readAnnouncementAsset } from "./utils/announcement.
 import { cleanCoreDumps } from "./utils/coreDumpCleanup.js";
 import { proxiedPublicBase } from "./utils/publicOrigin.js";
 import { checkForUpdate } from "./utils/updateCheck.js";
-import { createHongguoEmbyPort, handleHongguo, isHongguoPath, shutdownHongguo } from './modules/hongguo/index.js'
+import { removeRetiredData } from "./utils/retiredData.js";
 
 // 自定义源「经网络代理转发」的播放引用（${replace}/proxy/cp-<hex>.m3u8）：不是抓取模块，挂到 resolverFor 上
 registerRefResolver(createCustomProxyResolver({
@@ -349,13 +350,6 @@ async function handleRequest(req, res) {
       res.end('Admin page not found');
       printRed("管理页面文件不存在")
     }
-    return
-  }
-
-  if (isHongguoPath(routePath)) {
-    await handleHongguo(req, res, routePath, {
-      adminPath, accessPrefix, passAuthed, userAuthed, embyPort: hongguoEmbyPort,
-    })
     return
   }
 
@@ -1572,18 +1566,23 @@ async function handleRequest(req, res) {
       if (!proxyMode) logRelayManifest(routeUrl.split('?')[0].replace(/^\//, ''), req, manifest)
       return
     }
+    // 同频道每 5 秒一行——播放器失败后是 100ms 级别的连环重试，逐次打印只会淹没日志。
+    const logManifestFail = (outcome) => {
+      if (!logOncePer(`manifestfail|${failKey}`, 5 * 1000)) return
+      const reason = manifestDiag.reason ? `｜${manifestDiag.reason}` : ''
+      printYellow(`${outcome}: ${routeUrl.split('?')[0]}${reason}`)
+    }
     if (result.proxyHls) {
+      // 必须由服务器转发的频道不能回退 302：地址绑定服务器的出口或 UA，播放器直连只会被上游拒绝。
+      // 播放器那边只看得到 502，真正的上游原因写进日志（#244 以前这里不打日志）。
+      logManifestFail('全代理清单取回失败，回 502')
       res.writeHead(502, { 'Content-Type': 'text/plain;charset=UTF-8', 'Cache-Control': 'no-store' })
-      res.end('当前网络模式要求服务器转发媒体，但直播清单获取失败，请稍后重试')
+      res.end('服务器没取到直播清单（此频道须经服务器转发），请稍后重试')
       return
     }
     // 取清单失败（网络抖动/非 HLS 内容）：回退 302，能跟随跳转的播放器仍可播。
     // 打一行日志：不跟随跳转的播放器此时会播不了，用户排查时能从日志看出走了回退。
-    // 同频道每 5 秒一行——播放器失败后是 100ms 级别的连环重试，逐次打印只会淹没日志。
-    if (logOncePer(`manifestfail|${failKey}`, 5 * 1000)) {
-      const reason = manifestDiag.reason ? `｜${manifestDiag.reason}` : ''
-      printYellow(`清单直出取回失败，回退 302（不跟随跳转的播放器将无法播放）: ${routeUrl.split('?')[0]}${reason}`)
-    }
+    logManifestFail('清单直出取回失败，回退 302（不跟随跳转的播放器将无法播放）')
   }
 
   // 302 成功下发此前全程零日志（issue #98）：播放器拿着旧形态地址回退播放时服务端毫无痕迹。
@@ -1653,7 +1652,6 @@ const server = http.createServer((req, res) => {
   })
 })
 
-let hongguoEmbyPort
 let shutdownTask = null
 function shutdownProcess() {
   if (shutdownTask) return shutdownTask
@@ -1662,7 +1660,7 @@ function shutdownProcess() {
     // 守护进程的重启因为浏览器异常关闭而无限挂住。
     try { server.close() } catch { /* 尚未监听或已经关闭 */ }
     await Promise.race([
-      Promise.allSettled([shutdownModules(), shutdownHongguo(), hongguoEmbyPort?.close()]),
+      shutdownModules(),
       new Promise(resolve => setTimeout(resolve, 8_000)),
     ])
     process.exit(0)
@@ -1697,12 +1695,12 @@ process.on('uncaughtException', (err) => {
 })
 
 server.listen(port, async () => {
-  const updateInterval = parseInt(programInfoUpdateInterval)
-  hongguoEmbyPort = createHongguoEmbyPort(server.address().port)
-  hongguoEmbyPort.start().then(
-    () => printGreen(`红果 Emby 无路径端口已开启：${hongguoEmbyPort.status().listeningPort}`),
-    () => printYellow(`红果 Emby 无路径端口启动失败：${hongguoEmbyPort.status().error}`),
-  )
+  // 填错的间隔（0、小数、负数、非数字、太大）会让 setInterval 退成 1 毫秒，完整更新每毫秒并发
+  // 跑一次（issue #246）。按 1～168 小时兜住，没按配置走时打一行提示
+  const { hours: updateInterval, warning: updateIntervalWarning } = resolveUpdateIntervalHours(programInfoUpdateInterval)
+  if (updateIntervalWarning) printYellow(updateIntervalWarning)
+  // 已下线功能（红果短剧点播）留在数据目录里的登录会话和转码缓存，启动时删掉
+  removeRetiredData()
 
   // 用户令牌用量（最近访问 / 次数）节流落盘：内存累加，每 60 秒 flush 一次，避免每请求写磁盘
   setInterval(() => userManager.flushUsage(), 60 * 1000)
@@ -1719,13 +1717,23 @@ server.listen(port, async () => {
   // （文件名 + 修改时间，一次 readdir，几十个文件不到 1 毫秒）
   let logosFingerprint = localLogosFingerprint()
 
+  // 定时那轮和零点补刷都走这里，自己防重入：一轮没跑完（咪咕慢、源多）就撞上下一轮时，
+  // 两轮会同时重抓咪咕、同时写同一批文件
+  let fullUpdateRunning = false
   async function runFullUpdate() {
+    if (fullUpdateRunning) {
+      printYellow("上一轮完整更新尚未结束，跳过本次")
+      return
+    }
+    fullUpdateRunning = true
     try {
       await update(hours)
       playlistStale = false
     } catch (error) {
       console.log(error)
       printRed("更新失败")
+    } finally {
+      fullUpdateRunning = false
     }
   }
 

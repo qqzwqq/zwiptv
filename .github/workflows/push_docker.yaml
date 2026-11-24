@@ -111,8 +111,8 @@ jobs:
         env:
           TAGS: |
             qqzwqq/iptv:latest
-            qqzwqq/iptv:4.80.0
-            qqzwqq/iptv:4.80
+            qqzwqq/iptv:4.81.0
+            qqzwqq/iptv:4.81
             qqzwqq/iptv:4
         run: |
           docker buildx imagetools create \
