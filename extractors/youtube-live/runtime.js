@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
-import { delimiter, dirname, join } from 'node:path'
+import { delimiter, dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { outboundFetch, outboundProxyUrl } from '../../utils/outboundProxy.js'
@@ -36,7 +36,7 @@ function onPath(command) {
 export function managedVenv(binary = ytDlpBinary(), { env = process.env } = {}) {
   if (env.YTDLP_BIN) return ''
   try {
-    const path = binary.includes('/') ? binary : onPath(binary)
+    const path = isAbsolute(binary) || binary.includes('/') || binary.includes('\\') ? binary : onPath(binary)
     if (!path) return ''
     const venv = dirname(dirname(realpathSync(path)))
     return existsSync(join(venv, 'pyvenv.cfg')) && existsSync(join(venv, 'bin', 'python')) ? venv : ''
@@ -49,6 +49,10 @@ export function managedVenv(binary = ytDlpBinary(), { env = process.env } = {}) 
  * 脚本就报「找不到」，其实 Python 和 yt-dlp 都还在。YTDLP_BIN 指定的、系统里的照旧直接执行。
  */
 export function ytDlpCommand(binary = ytDlpBinary(), { env = process.env } = {}) {
+  // 支持通过 Node.js 启动 JavaScript 包装程序，便于跨平台运行。
+  if (/\.(?:c?js|mjs)$/i.test(binary)) {
+    return { file: process.execPath, args: [binary] }
+  }
   const venv = managedVenv(binary, { env })
   return venv ? { file: join(venv, 'bin', 'python'), args: ['-m', 'yt_dlp'] } : { file: binary, args: [] }
 }

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
 
-const admin = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8')
+const admin = readFileSync(new URL('../web/admin.html', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const functionSource = name => {
   // 顶层函数按相同缩进收尾，与 test-admin-prompt.mjs 一致。
   const source = admin.match(new RegExp(`^ {8}(?:async )?function ${name}\\([^]*?^ {8}\\}`, 'm'))

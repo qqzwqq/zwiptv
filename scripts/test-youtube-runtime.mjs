@@ -74,6 +74,7 @@ try {
   assert.deepEqual(ytDlpCommand('/x/yt-dlp', { env: { YTDLP_BIN: '/x/yt-dlp' } }), { file: '/x/yt-dlp', args: [] })
 
   // 源码运行装完后挪过项目目录：启动脚本第一行还指着旧路径，系统报「找不到」；python -m yt_dlp 照样能跑
+  if (process.platform !== 'win32') {
   const run = promisify(execFile)
   writeFileSync(join(venv, 'bin', 'python'), '#!/bin/sh\n[ "$*" = "-m yt_dlp --version" ] && echo 2026.10.26\n')
   writeFileSync(join(venv, 'bin', 'yt-dlp'), '#!/old/place/iptv/.runtime/youtube/bin/python\n')
@@ -81,6 +82,7 @@ try {
   await assert.rejects(run(join(venv, 'bin', 'yt-dlp'), ['--version']), { code: 'ENOENT' })
   const { file: python, args } = ytDlpCommand(join(venv, 'bin', 'yt-dlp'), { env: {} })
   assert.equal((await run(python, [...args, '--version'])).stdout.trim(), '2026.10.26')
+  }
 } finally { rmSync(dir, { recursive: true, force: true }) }
 
 console.log('✅ YouTube 解析组件：版本比较、按 Python 选版本、只升级本项目的虚拟环境、挪过目录照样能跑')

@@ -30,7 +30,8 @@ CHANNELS = frozenset((
 def load_engine():
     metadata = json.loads((ROOT / 'vendor/UPSTREAM.json').read_text())
     path = ROOT / 'vendor/ysp-live.py'
-    if hashlib.sha256(path.read_bytes()).hexdigest() != metadata['sha256']:
+    source = path.read_bytes().replace(b'\r\n', b'\n')
+    if hashlib.sha256(source).hexdigest() != metadata['sha256']:
         raise RuntimeError('bundled device engine checksum mismatch')
     spec = importlib.util.spec_from_file_location('ysp_cast_upstream', path)
     engine = importlib.util.module_from_spec(spec)
